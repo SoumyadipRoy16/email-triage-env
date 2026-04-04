@@ -14,8 +14,8 @@ from openai import OpenAI
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.anthropic.com/v1")
-MODEL_NAME:   str = os.getenv("MODEL_NAME",   "claude-sonnet-4-20250514")
+API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME:   str = os.getenv("MODEL_NAME",   "meta-llama/Llama-3.1-8B-Instruct:cerebras")
 API_KEY:      str = os.getenv("HF_TOKEN",     "")
 ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "https://soumyadiproy894-email-triage-env.hf.space")
 

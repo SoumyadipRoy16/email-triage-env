@@ -314,22 +314,23 @@ Baseline scores from running `inference.py` with `claude-sonnet-4-20250514` at `
 
 | Task | Task ID | Difficulty | Steps Used | Baseline Score | Success (≥0.60) |
 |------|---------|------------|------------|---------------|-----------------|
-| Email Classification | `task_classify` | Easy   | 1 | **0.85** | ✅ |
-| Action Item Extraction | `task_extract` | Medium | 2 | **0.72** | ✅ |
-| Professional Reply | `task_reply`   | Hard   | 3 | **0.68** | ✅ |
-| **Overall average** | — | — | — | **0.75** | ✅ |
+| Email Classification | `task_classify` | Easy   | 1 | **1.00** | ✅ |
+| Action Item Extraction | `task_extract` | Medium | 2 | **0.70** | ✅ |
+| Professional Reply | `task_reply`   | Hard   | 3 | **0.91** | ✅ |
+| **Overall average** | — | — | — | **0.87** | ✅ |
 
 ### Score breakdown — Classification (seed=42, email=e002)
 
 ```
 Email   : "Production API returning 503 errors — 40% of requests failing"
 Sender  : Derek Osei (Senior DevOps Engineer)
+Model   : meta-llama/Llama-3.1-8B-Instruct:cerebras
 
 Step 1  : {"category": "technical_support", "urgency": "critical"}
 Feedback: ✓ Category 'technical_support' is correct. (+0.50)
           ✓ Urgency 'critical' is correct. (+0.50)
 Reward  : 1.00
-Score   : 1.00 / 1.00
+Score   : 1.00  →  success ✅
 ```
 
 ### Score breakdown — Extraction (seed=43, email=e001)
@@ -337,38 +338,37 @@ Score   : 1.00 / 1.00
 ```
 Email   : "URGENT: Invoice #INV-2024-8821 overdue — service suspension imminent"
 Sender  : Margaret Holloway (CFO)
+Model   : meta-llama/Llama-3.1-8B-Instruct:cerebras
 
-Step 1  : 5 action items extracted, summary provided
-Feedback: Precision: 80% (4/5 matched) | Recall: 80% (4/5 captured) | Summary: 0.52
-          Missed: "Escalate to billing manager if necessary"
-Reward  : 0.624
+Step 1  : 5 action items extracted, detailed summary provided
+          Precision: ~80% | Recall: ~80% | Summary: good
+Reward  : 0.6991
 
-Step 2  : Refined — 5 items (added missed escalation item), improved summary
-Feedback: Precision: 100% (5/5 matched) | Recall: 80% (4/5 captured) | Summary: 0.61
-Reward  : 0.722
+Step 2  : Refined items (slight variation), summary maintained
+Reward  : 0.5391
 
-Score   : 0.673 (average across steps) → success
+Score   : 0.6991 (best-step scoring)  →  success ✅
 ```
 
 ### Score breakdown — Reply (seed=44, email=e006)
 
 ```
-Email   : "Extremely disappointed with onboarding experience — escalation needed"
-Sender  : Fiona Carmichael (Enterprise Account Manager, BigRetail Co)
+Email   : "Interested in your Enterprise plan — pricing and features inquiry"
+Sender  : Alan Brewster (Sales Director, ProspectCo)
+Model   : meta-llama/Llama-3.1-8B-Instruct:cerebras
 
-Step 1  : Reply drafted, addresses 3 of 4 demands, appropriate empathetic tone
-          Tone: 24/30 | Completeness: 26/40 | Professionalism: 25/30  → 75/100
-Reward  : 0.75
+Step 1  : Full reply addressing all 5 requests (pricing, feature comparison,
+          compliance docs, case studies, demo scheduling)
+          Tone: high | Completeness: high | Professionalism: high → 91/100
+Reward  : 0.91
 
-Step 2  : Reply refined, all 4 demands addressed with VP call commitment
-          Tone: 26/30 | Completeness: 35/40 | Professionalism: 27/30  → 88/100
-Reward  : 0.88
+Step 2  : Refined reply with more detail on compliance and feature comparison
+Reward  : 0.91
 
-Step 3  : Final polish — compensation discussion acknowledged, timeline added
-          Tone: 27/30 | Completeness: 38/40 | Professionalism: 28/30  → 93/100
-Reward  : 0.93
+Step 3  : Final reply with structured sections and budget acknowledgement
+Reward  : 0.91
 
-Score   : 0.853 (average across steps) → success
+Score   : 0.91 (best-step scoring)  →  success ✅
 ```
 
 ### Baseline comparison
@@ -377,9 +377,8 @@ Score   : 0.853 (average across steps) → success
 |-----------|---------------|-----------|-------|
 | Random agent | ~0.06 | ~0.00 | ~0.05 |
 | Keyword heuristic | ~0.55 | ~0.30 | N/A |
-| GPT-4o (temp=0.2) | ~0.80 | ~0.68 | ~0.62 |
-| claude-sonnet-4 (temp=0.2) | **~0.85** | **~0.72** | **~0.68** |
-| Perfect agent | 1.00 | ~0.95 | ~0.90 |
+| Llama-3.1-8B:cerebras (temp=0.2) | **1.00** | **0.70** | **0.91** |
+| Perfect agent | 1.00 | ~0.95 | ~1.00 |
 
 > Scores vary slightly across runs due to LLM non-determinism even at low temperature. The success threshold is `score ≥ 0.60`.
 
@@ -419,8 +418,8 @@ MODEL_NAME=claude-sonnet-4-20250514
 HF_TOKEN=sk-ant-your-key-here      # your Anthropic API key
 
 # For Hugging Face Inference:
-API_BASE_URL=https://api-inference.huggingface.co/v1
-MODEL_NAME=meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+API_BASE_URL=https://router.huggingface.co/v1
+MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct:cerebras
 HF_TOKEN=hf_your_token_here        # your HF token works for both LLM + HF Space deploy
 ```
 
@@ -470,17 +469,19 @@ docker build -t email-triage-env:latest .
 ### Run
 
 ```bash
-docker run -p 8000:8000 \
-  -e API_BASE_URL="https://api.anthropic.com/v1" \
-  -e MODEL_NAME="claude-sonnet-4-20250514" \
-  -e HF_TOKEN="your_api_key_here" \
+docker run -p 7860:7860 \
+  -e API_BASE_URL="https://router.huggingface.co/v1" \
+  -e MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct:cerebras" \
+  -e HF_TOKEN="hf_your_token_here" \
   email-triage-env:latest
 ```
+
+> **Note:** The container listens on port **7860** (required by HF Spaces). For local testing you can map it to any host port, e.g. `-p 8000:7860`.
 
 ### Verify
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:7860/health
 # → {"status":"ok","version":"1.0.0","environment":"email-triage-env"}
 ```
 
@@ -499,7 +500,8 @@ curl http://localhost:8000/health
 
 ```bash
 git init && git add -A && git commit -m "Initial submission"
-git remote add space https://huggingface.co/spaces/<your-username>/email-triage-env
+# Use your HF token in the URL to avoid password auth prompt
+git remote add space https://<your-username>:hf_your_token@huggingface.co/spaces/<your-username>/email-triage-env
 git push space main
 ```
 
@@ -509,9 +511,9 @@ In your Space → **Settings** → **Repository secrets**, add:
 
 | Secret | Value |
 |--------|-------|
-| `API_BASE_URL` | `https://api.anthropic.com/v1` |
-| `MODEL_NAME`   | `claude-sonnet-4-20250514` |
-| `HF_TOKEN`     | `your_api_key_here` |
+| `API_BASE_URL` | `https://router.huggingface.co/v1` |
+| `MODEL_NAME`   | `meta-llama/Llama-3.1-8B-Instruct:cerebras` |
+| `HF_TOKEN`     | `hf_your_token_here` |
 
 ### Step 4: Verify the Space
 
@@ -534,33 +536,45 @@ The inference script runs all three tasks sequentially against the live environm
 
 ```bash
 # Terminal 1 — start the environment server
-uvicorn server.main:app --port 8000
+uvicorn server.main:app --port 7860
 
-# Terminal 2 — load env vars and run
+# Terminal 2 — load env vars and run (Linux/Mac)
 set -a && source .env && set +a
-export ENV_BASE_URL="http://localhost:8000"
+export ENV_BASE_URL="http://localhost:7860"
+python inference.py
+
+# Windows CMD
+set API_BASE_URL=https://router.huggingface.co/v1
+set MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct:cerebras
+set HF_TOKEN=hf_your_token_here
+set ENV_BASE_URL=http://localhost:7860
 python inference.py
 ```
 
 ### Against a deployed HF Space
 
 ```bash
+# Linux/Mac
 set -a && source .env && set +a
 export ENV_BASE_URL="https://<username>-email-triage-env.hf.space"
+python inference.py
+
+# Windows CMD
+set ENV_BASE_URL=https://<username>-email-triage-env.hf.space
 python inference.py
 ```
 
 ### Expected stdout format
 
 ```json
-{"type": "START", "task": "task_classify", "env": "email-triage-easy", "model": "claude-sonnet-4-20250514"}
+{"type": "START", "task": "task_classify", "env": "email-triage-easy", "model": "meta-llama/Llama-3.1-8B-Instruct:cerebras"}
 {"type": "STEP", "step": 1, "action": "{\"category\": \"technical_support\", \"urgency\": \"critical\"}", "reward": 1.0, "done": true, "error": null}
 {"type": "END", "success": true, "steps": 1, "score": 1.0, "rewards": [1.0]}
-{"type": "START", "task": "task_extract", "env": "email-triage-medium", "model": "claude-sonnet-4-20250514"}
+{"type": "START", "task": "task_extract", "env": "email-triage-medium", "model": "meta-llama/Llama-3.1-8B-Instruct:cerebras"}
 {"type": "STEP", "step": 1, "action": "{\"action_items\": [\"...\"], \"summary\": \"...\"}", "reward": 0.624, "done": false, "error": null}
 {"type": "STEP", "step": 2, "action": "{\"action_items\": [\"...\"], \"summary\": \"...\"}", "reward": 0.722, "done": true, "error": null}
 {"type": "END", "success": true, "steps": 2, "score": 0.673, "rewards": [0.624, 0.722]}
-{"type": "START", "task": "task_reply", "env": "email-triage-hard", "model": "claude-sonnet-4-20250514"}
+{"type": "START", "task": "task_reply", "env": "email-triage-hard", "model": "meta-llama/Llama-3.1-8B-Instruct:cerebras"}
 {"type": "STEP", "step": 1, "action": "{\"reply\": \"Dear Fiona,...\"}", "reward": 0.75, "done": false, "error": null}
 {"type": "STEP", "step": 2, "action": "{\"reply\": \"Dear Fiona,...\"}", "reward": 0.88, "done": false, "error": null}
 {"type": "STEP", "step": 3, "action": "{\"reply\": \"Dear Fiona,...\"}", "reward": 0.93, "done": true, "error": null}
@@ -623,9 +637,11 @@ python inference.py
 
 ```
 email-triage-env/
-├── Dockerfile              # Container build (Python 3.11-slim, non-root user)
+├── Dockerfile              # Container build — port 7860, Python 3.11-slim, non-root user
 ├── openenv.yaml            # OpenEnv specification (tasks, spaces, metadata)
-├── requirements.txt        # Pinned Python dependencies
+├── pyproject.toml          # Python package config with [project.scripts] entry point
+├── uv.lock                 # Pinned dependency lockfile (required by openenv validate)
+├── requirements.txt        # pip-compatible dependency list
 ├── inference.py            # ← Baseline inference script (run this for evaluation)
 ├── .env.example            # Environment variable template
 ├── .gitignore
@@ -633,6 +649,7 @@ email-triage-env/
 ├── LICENSE
 └── server/
     ├── __init__.py
+    ├── app.py              # OpenEnv entry point — re-exports FastAPI app, provides main()
     ├── main.py             # FastAPI app — all HTTP endpoints + middleware
     ├── models.py           # Pydantic v2 typed models (Action, Observation, StepResult, ...)
     ├── env.py              # Core environment state machine (reset/step/state logic)
@@ -655,7 +672,11 @@ email-triage-env/
 | `MAX_TOKENS`   | ❌ | `2048` | Maximum tokens per LLM call |
 | `MAX_RETRIES`  | ❌ | `2` | Number of LLM retry attempts on failure |
 
-> **Key clarification:** `HF_TOKEN` serves dual purpose. When `API_BASE_URL` points to Anthropic, it must be your Anthropic API key (`sk-ant-...`). When `API_BASE_URL` points to HF Inference, your HF token (`hf_...`) works for both LLM calls and Space deployment.
+> **Key clarification:** `HF_TOKEN` serves dual purpose — it is both the LLM API key and the HF Space deploy credential. When `API_BASE_URL` points to `router.huggingface.co`, your HF token (`hf_...`) works for both. When pointing to Anthropic (`api.anthropic.com/v1`), use your Anthropic key (`sk-ant-...`) instead.
+
+> **Model name format:** The HF router requires a provider suffix on the model name, e.g. `meta-llama/Llama-3.1-8B-Instruct:cerebras`. Append `:auto` to let HF pick the best available provider automatically.
+
+> **Port:** The server runs on port **7860** (required by HF Spaces). All endpoints are proxied through this port externally.
 
 ---
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import time
 from typing import Any, Dict, List, Optional
@@ -211,26 +212,63 @@ def call_llm(
 
 def parse_action(raw: str, task_id: str) -> Dict[str, Any]:
     """
-    Parse the LLM's raw string output into an action dict.
-    Strips markdown fences and falls back gracefully.
+    Parse the LLM raw output into an action dict.
+    Handles: markdown fences, truncated JSON, escaped quotes,
+    and extracts partial JSON using regex as a last resort.
     """
-    # Strip common markdown fences
     cleaned = raw.strip()
+
+    # Strip markdown fences
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
         cleaned = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    cleaned = cleaned.strip()
 
+    # Attempt 1 — direct parse
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        logger.warning("[DEBUG] Failed to parse JSON from LLM: %r", cleaned[:200])
-        # Minimal fallback per task
-        fallbacks = {
-            "task_classify": {"category": "general_inquiry", "urgency": "medium"},
-            "task_extract":  {"action_items": [], "summary": "Could not extract."},
-            "task_reply":    {"reply": "Thank you for your email. We will follow up shortly."},
-        }
-        return fallbacks.get(task_id, {})
+        pass
+
+    # Attempt 2 — find the outermost { ... } block
+    try:
+        start = cleaned.index("{")
+        depth, end = 0, start
+        for i, ch in enumerate(cleaned[start:], start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        return json.loads(cleaned[start:end + 1])
+    except (ValueError, json.JSONDecodeError):
+        pass
+
+    # Attempt 3 — regex extract "reply" value for reply task
+    if task_id == "task_reply":
+        m = re.search(r'"reply"\s*:\s*"(.*?)(?<!\\)"(?:\s*[,}]|$)', cleaned, re.DOTALL)
+        if m:
+            reply_text = m.group(1).replace('\\"', '"').replace("\\'", "'")
+            if len(reply_text) > 30:
+                logger.info("[DEBUG] Extracted reply via regex (%d chars)", len(reply_text))
+                return {"reply": reply_text}
+
+    # Attempt 4 — if output looks like a letter, use it directly as reply
+    if task_id == "task_reply":
+        lower = cleaned.lower()
+        if any(g in lower for g in ["dear ", "hello ", "hi ", "thank you"]) and len(cleaned) > 50:
+            logger.info("[DEBUG] Using raw output as reply (%d chars)", len(cleaned))
+            return {"reply": cleaned}
+
+    logger.warning("[DEBUG] Failed to parse JSON from LLM: %r", cleaned[:300])
+    fallbacks = {
+        "task_classify": {"category": "general_inquiry", "urgency": "medium"},
+        "task_extract":  {"action_items": [], "summary": "Could not extract."},
+        "task_reply":    {"reply": "Thank you for your email. We will follow up shortly."},
+    }
+    return fallbacks.get(task_id, {})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

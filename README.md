@@ -308,7 +308,7 @@ reward    = raw_score / 100.0
 
 ## 📊 Baseline Scores
 
-Baseline scores from running `inference.py` with `claude-sonnet-4-20250514` at `temperature=0.2`, seeds 42/43/44.
+Baseline scores from running `inference.py` with `meta-llama/Llama-3.1-8B-Instruct:cerebras` at `temperature=0.2`, seeds 42/43/44.
 
 ### Per-task summary
 

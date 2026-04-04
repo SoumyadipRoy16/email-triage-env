@@ -1,24 +1,11 @@
-"""
-main.py
-───────
-FastAPI application implementing the OpenEnv HTTP API for the
-Email Triage environment.
-
-Endpoints:
-  POST /reset   — Start a new episode
-  POST /step    — Submit an action, receive StepResult
-  GET  /state   — Inspect current environment state
-  GET  /health  — Health check (200 OK)
-  GET  /tasks   — List all tasks with metadata
-  GET  /        — Root info endpoint
-"""
-
 from __future__ import annotations
 import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
+from typing import Dict
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,7 +19,7 @@ from .models import (
     TasksResponse,
 )
 from .env import EmailTriageEnv
-from .tasks import TASK_REGISTRY, TaskDefinition
+from .tasks import TASK_REGISTRY
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -42,27 +29,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── Lifespan (startup / shutdown) ─────────────────────────────────────────────
-_env: EmailTriageEnv | None = None
+# ── Session store — one EmailTriageEnv instance per session ID ────────────────
+_sessions: Dict[str, EmailTriageEnv] = {}
+_DEFAULT_SESSION = "default"
+_MAX_SESSIONS = 256   # cap to avoid unbounded memory growth
 
 
+def _get_session(session_id: str) -> EmailTriageEnv:
+    """Return existing session env or create a new one."""
+    if session_id not in _sessions:
+        if len(_sessions) >= _MAX_SESSIONS:
+            # Evict oldest session (FIFO)
+            oldest = next(iter(_sessions))
+            del _sessions[oldest]
+            logger.info("Session evicted (max reached): %s", oldest)
+        _sessions[session_id] = EmailTriageEnv()
+        logger.info("Session created: %s (total active: %d)", session_id, len(_sessions))
+    return _sessions[session_id]
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _env
-    logger.info("Initialising Email Triage environment...")
-    _env = EmailTriageEnv()
+    logger.info("Email Triage environment starting up...")
+    _get_session(_DEFAULT_SESSION)   # pre-warm default session
     logger.info("Environment ready. Awaiting requests.")
     yield
-    logger.info("Shutting down Email Triage environment.")
+    logger.info("Shutting down. Active sessions: %d", len(_sessions))
+    _sessions.clear()
 
 
-# ── FastAPI application ───────────────────────────────────────────────────────
+# ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Email Triage OpenEnv",
     description=(
         "A real-world OpenEnv environment for AI agents to learn email triage, "
-        "action-item extraction, and professional reply drafting. "
-        "Implements the full OpenEnv step() / reset() / state() API contract."
+        "action-item extraction, and professional reply drafting.\n\n"
+        "**Session isolation:** Pass `X-Session-ID: <your-id>` header to maintain "
+        "independent episode state across concurrent callers."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -70,7 +74,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS — allow all origins (needed for HF Spaces iframe / external clients)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -80,32 +83,23 @@ app.add_middleware(
 )
 
 
-# ── Request timing middleware ─────────────────────────────────────────────────
 @app.middleware("http")
 async def add_process_time(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
-    elapsed = time.perf_counter() - start
-    response.headers["X-Process-Time"] = f"{elapsed:.4f}s"
+    response.headers["X-Process-Time"] = f"{time.perf_counter() - start:.4f}s"
     return response
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-def _get_env() -> EmailTriageEnv:
-    if _env is None:
-        raise HTTPException(status_code=503, detail="Environment not initialised.")
-    return _env
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["info"])
 async def root():
-    """Root info endpoint — confirms the server is alive."""
     return {
         "name": "email-triage-env",
         "version": "1.0.0",
-        "description": "Email Triage OpenEnv environment",
+        "description": "Email Triage OpenEnv — 24-email corpus, 3 tasks, deterministic graders",
+        "session_isolation": "Pass X-Session-ID header for independent concurrent sessions",
         "endpoints": {
             "reset":  "POST /reset",
             "step":   "POST /step",
@@ -119,99 +113,100 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse, tags=["info"])
 async def health():
-    """Health check — returns 200 and status 'ok'."""
     return HealthResponse()
 
 
 @app.get("/tasks", response_model=TasksResponse, tags=["info"])
 async def list_tasks():
-    """Enumerate all available tasks with metadata."""
     return TasksResponse(tasks=list(TASK_REGISTRY.values()))
 
 
+@app.get("/sessions", tags=["info"])
+async def list_sessions():
+    """Return count of active sessions (diagnostic endpoint)."""
+    return {"active_sessions": len(_sessions), "max_sessions": _MAX_SESSIONS}
+
+
 @app.post("/reset", response_model=ResetResponse, tags=["openenv"])
-async def reset(request: ResetRequest = ResetRequest()):
+async def reset(
+    request: ResetRequest = ResetRequest(),
+    x_session_id: str = Header(default=_DEFAULT_SESSION, alias="X-Session-ID"),
+):
     """
     Start a new episode.
 
-    - **task_id**: Optional. Pin to a specific task (`task_classify`, `task_extract`, `task_reply`).
-    - **email_id**: Optional. Pin to a specific email ID (`e001`–`e008`).
-    - **seed**: Optional integer seed for reproducibility.
-
-    Returns the first observation and episode metadata.
+    - **X-Session-ID** header: optional session identifier for isolation.
+      Multiple callers can run concurrent episodes by providing different IDs.
+    - **task_id**: pin to a specific task (`task_classify`, `task_extract`, `task_reply`).
+    - **email_id**: pin to a specific email (`e001`–`e009c`).
+    - **seed**: integer seed for reproducibility.
     """
-    env = _get_env()
+    env = _get_session(x_session_id)
     try:
         response = env.reset(
             task_id=request.task_id,
             email_id=request.email_id,
             seed=request.seed,
         )
-        logger.info("POST /reset → episode_id=%s task=%s", response.episode_id, response.task_id)
+        logger.info(
+            "POST /reset [session=%s] → episode=%s task=%s",
+            x_session_id, response.episode_id[:8], response.task_id,
+        )
         return response
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        logger.exception("Unexpected error in /reset")
-        raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
+        logger.exception("Error in /reset")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/step", response_model=StepResult, tags=["openenv"])
-async def step(action: EmailTriageAction):
+async def step(
+    action: EmailTriageAction,
+    x_session_id: str = Header(default=_DEFAULT_SESSION, alias="X-Session-ID"),
+):
     """
     Submit an agent action and receive a StepResult.
 
-    Fill only the fields relevant to the current task:
-    - **category** + **urgency** for `task_classify`
-    - **action_items** + **summary** for `task_extract`
-    - **reply** for `task_reply`
-
-    Returns reward (0.0–1.0), done flag, grader feedback, and next observation.
+    Provide the same **X-Session-ID** used in your `/reset` call.
     """
-    env = _get_env()
+    env = _get_session(x_session_id)
     try:
         result = env.step(action)
         logger.info(
-            "POST /step → reward=%.4f done=%s",
-            result.reward, result.done,
+            "POST /step [session=%s] → reward=%.4f done=%s",
+            x_session_id, result.reward, result.done,
         )
         return result
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except Exception as exc:
-        logger.exception("Unexpected error in /step")
-        raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
+        logger.exception("Error in /step")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/state", response_model=EnvState, tags=["openenv"])
-async def state():
-    """
-    Return the full internal environment state.
-    Useful for debugging, logging, and monitoring agent progress.
-    """
-    env = _get_env()
+async def state(
+    x_session_id: str = Header(default=_DEFAULT_SESSION, alias="X-Session-ID"),
+):
+    """Return full internal environment state for the given session."""
+    env = _get_session(x_session_id)
     try:
         return env.state()
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except Exception as exc:
-        logger.exception("Unexpected error in /state")
-        raise HTTPException(status_code=500, detail=f"Internal error: {exc}")
+        logger.exception("Error in /state")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Error handlers ────────────────────────────────────────────────────────────
 
 @app.exception_handler(404)
-async def not_found_handler(request: Request, exc):
-    return JSONResponse(
-        status_code=404,
-        content={"detail": f"Endpoint '{request.url.path}' not found."},
-    )
+async def not_found(request: Request, exc):
+    return JSONResponse(status_code=404, content={"detail": f"Endpoint '{request.url.path}' not found."})
 
 
 @app.exception_handler(405)
-async def method_not_allowed_handler(request: Request, exc):
-    return JSONResponse(
-        status_code=405,
-        content={"detail": f"Method '{request.method}' not allowed on '{request.url.path}'."},
-    )
+async def method_not_allowed(request: Request, exc):
+    return JSONResponse(status_code=405, content={"detail": f"Method '{request.method}' not allowed."})

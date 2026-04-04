@@ -350,7 +350,13 @@ async def run_task(
                 break
 
         # ── Score ──────────────────────────────────────────────────────────────
-        score   = sum(rewards) / max_total_reward if max_total_reward > 0 else 0.0
+        # For multi-step tasks, use the BEST step reward as the score.
+        # This rewards improvement and prevents a bad final step from
+        # dragging down an earlier excellent attempt.
+        if rewards:
+            score = max(rewards)
+        else:
+            score = sum(rewards) / max_total_reward if max_total_reward > 0 else 0.0
         score   = min(max(score, 0.0), 1.0)
         success = score >= SUCCESS_SCORE_THRESHOLD
 

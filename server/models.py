@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ── Enums ────────────────────────────────────────────────────────────────────
@@ -71,9 +71,7 @@ class EmailTriageAction(BaseModel):
         description="[task=reply] Full text of the professional reply email",
     )
 
-    class Config:
-        use_enum_values = True
-        extra = "ignore"
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
 
 # ── Observation ──────────────────────────────────────────────────────────────
@@ -93,8 +91,7 @@ class EmailTriageObservation(BaseModel):
     step_number: int = Field(default=0, description="Current step index")
     done: bool = Field(default=False, description="Whether the episode is complete")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ── Step Result ───────────────────────────────────────────────────────────────
@@ -125,8 +122,7 @@ class EnvState(BaseModel):
     done: bool
     history: List[Dict[str, Any]] = Field(default_factory=list)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ── Task Definition ───────────────────────────────────────────────────────────
@@ -139,8 +135,7 @@ class TaskDefinition(BaseModel):
     max_steps: int
     reward_range: List[float] = [0.0, 1.0]
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ── Reset Request / Response ──────────────────────────────────────────────────

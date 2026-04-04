@@ -17,7 +17,7 @@ from openai import OpenAI
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.anthropic.com/v1")
 MODEL_NAME:   str = os.getenv("MODEL_NAME",   "claude-sonnet-4-20250514")
 API_KEY:      str = os.getenv("HF_TOKEN",     "")
-ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "http://localhost:8000")
+ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "https://soumyadiproy894-email-triage-env.hf.space")
 
 TEMPERATURE:  float = float(os.getenv("TEMPERATURE", "0.2"))
 MAX_TOKENS:   int   = int(os.getenv("MAX_TOKENS",    "2048"))

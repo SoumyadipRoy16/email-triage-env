@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "email-triage-env"
+version = "1.0.0"
+description = "A real-world OpenEnv environment for email triage, action-item extraction, and professional reply drafting."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["openenv", "reinforcement-learning", "email", "nlp", "business"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "fastapi==0.115.5",
+    "uvicorn[standard]==0.32.1",
+    "pydantic==2.10.3",
+    "openai==1.58.1",
+    "httpx==0.28.1",
+    "python-dotenv==1.0.1",
+    "pyyaml==6.0.2",
+    "anyio==4.7.0",
+    "starlette==0.41.3",
+]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/soumyadiproy894/email-triage-env"
+Repository = "https://huggingface.co/spaces/soumyadiproy894/email-triage-env"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server*"]
+
+[tool.setuptools.package-data]
+"*" = ["openenv.yaml"]

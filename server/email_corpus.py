@@ -1,10 +1,3 @@
-"""
-email_corpus.py
-───────────────
-Realistic synthetic business email dataset.
-Each email carries ground-truth labels used by the graders.
-"""
-
 from __future__ import annotations
 from typing import List
 from pydantic import BaseModel

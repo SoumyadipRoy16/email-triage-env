@@ -1,10 +1,3 @@
-"""
-env.py
-──────
-Core environment state machine for the Email Triage OpenEnv environment.
-Manages episode lifecycle: reset → step → step → ... → done.
-"""
-
 from __future__ import annotations
 import random
 import uuid

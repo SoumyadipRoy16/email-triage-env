@@ -1,10 +1,3 @@
-"""
-tasks.py
-────────
-Task definitions and per-task instruction generators for the
-Email Triage OpenEnv environment.
-"""
-
 from __future__ import annotations
 from typing import Dict
 from .models import TaskDefinition, TaskDifficulty, TaskType

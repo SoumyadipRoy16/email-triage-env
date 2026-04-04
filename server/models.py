@@ -1,10 +1,3 @@
-"""
-models.py
-─────────
-Typed Pydantic v2 models for the Email Triage OpenEnv environment.
-These are the canonical data contracts for the step() / reset() / state() API.
-"""
-
 from __future__ import annotations
 from enum import Enum
 from typing import List, Optional, Dict, Any

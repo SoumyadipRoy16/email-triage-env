@@ -1,26 +1,3 @@
-"""
-inference.py
-────────────
-Baseline inference script for the Email Triage OpenEnv environment.
-
-Runs all three tasks sequentially using an LLM agent and emits structured
-stdout logs in the mandatory [START] / [STEP] / [END] format required for
-evaluation scoring.
-
-Usage:
-    python inference.py
-
-Required environment variables:
-    API_BASE_URL   — The API endpoint for the LLM (OpenAI-compatible)
-    MODEL_NAME     — The model identifier to use for inference
-    HF_TOKEN       — Your Hugging Face / API key
-
-Optional environment variables:
-    ENV_BASE_URL   — The Email Triage env server URL (default: http://localhost:8000)
-    MAX_RETRIES    — Number of LLM call retries on failure (default: 2)
-    TEMPERATURE    — LLM temperature (default: 0.2)
-"""
-
 from __future__ import annotations
 
 import asyncio

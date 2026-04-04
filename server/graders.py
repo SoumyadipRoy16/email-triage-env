@@ -1,14 +1,3 @@
-"""
-graders.py
-──────────
-Agent graders for the Email Triage OpenEnv environment.
-
-Each grader:
-  • Accepts an action and the ground-truth email
-  • Returns a reward in [0.0, 1.0] and human-readable feedback
-  • Provides meaningful partial-progress signals
-"""
-
 from __future__ import annotations
 import os
 import re

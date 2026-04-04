@@ -2,8 +2,7 @@ from __future__ import annotations
 import os
 import uvicorn
 
-# Re-export the FastAPI application so other modules can import from here
-from server.main import app  # noqa: F401
+from server.main import app
 
 
 def main() -> None:

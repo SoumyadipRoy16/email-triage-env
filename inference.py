@@ -32,7 +32,7 @@ TASKS_CONFIG = [
 
 SUCCESS_SCORE_THRESHOLD = 0.60
 
-# ── Logging (stderr only — stdout is reserved for structured logs) ─────────────
+# ── Logging ─────────────
 logging.basicConfig(
     stream=sys.stderr,
     level=logging.INFO,
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Structured stdout loggers (MANDATORY FORMAT — do not alter field names)
+# Structured stdout loggers
 # ─────────────────────────────────────────────────────────────────────────────
 
 def log_start(*, task: str, env: str, model: str) -> None:
@@ -350,9 +350,6 @@ async def run_task(
                 break
 
         # ── Score ──────────────────────────────────────────────────────────────
-        # For multi-step tasks, use the BEST step reward as the score.
-        # This rewards improvement and prevents a bad final step from
-        # dragging down an earlier excellent attempt.
         if rewards:
             score = max(rewards)
         else:

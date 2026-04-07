@@ -14,10 +14,10 @@ from openai import OpenAI
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME:   str = os.getenv("MODEL_NAME",   "meta-llama/Llama-3.1-8B-Instruct:cerebras")
+API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.anthropic.com/v1")
+MODEL_NAME:   str = os.getenv("MODEL_NAME",   "claude-sonnet-4-20250514")
 API_KEY:      str = os.getenv("HF_TOKEN",     "")
-ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "https://soumyadiproy894-email-triage-env.hf.space")
+ENV_BASE_URL: str = os.getenv("ENV_BASE_URL", "http://localhost:8000")
 
 TEMPERATURE:  float = float(os.getenv("TEMPERATURE", "0.2"))
 MAX_TOKENS:   int   = int(os.getenv("MAX_TOKENS",    "2048"))
@@ -32,7 +32,7 @@ TASKS_CONFIG = [
 
 SUCCESS_SCORE_THRESHOLD = 0.60
 
-# ── Logging ─────────────
+# ── Logging (stderr only — stdout is reserved for structured logs) ─────────────
 logging.basicConfig(
     stream=sys.stderr,
     level=logging.INFO,
@@ -43,10 +43,13 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Structured stdout loggers
+# Structured stdout loggers (MANDATORY FORMAT — do not alter field names)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def log_start(*, task: str, env: str, model: str) -> None:
+    # Plain-text [START] block required by the validator
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+    # Also emit JSON for downstream parsers
     print(json.dumps({"type": "START", "task": task, "env": env, "model": model}), flush=True)
 
 
@@ -58,6 +61,10 @@ def log_step(
     done: bool,
     error: Optional[str],
 ) -> None:
+    error_str = error if error else "null"
+    # Plain-text [STEP] block required by the validator
+    print(f"[STEP] step={step} reward={reward} done={done} error={error_str}", flush=True)
+    # Also emit JSON for downstream parsers
     print(
         json.dumps({
             "type":   "STEP",
@@ -78,6 +85,9 @@ def log_end(
     score: float,
     rewards: List[float],
 ) -> None:
+    # Plain-text [END] block required by the validator
+    print(f"[END] success={success} steps={steps} score={score} rewards={rewards}", flush=True)
+    # Also emit JSON for downstream parsers
     print(
         json.dumps({
             "type":    "END",
@@ -350,6 +360,9 @@ async def run_task(
                 break
 
         # ── Score ──────────────────────────────────────────────────────────────
+        # For multi-step tasks, use the BEST step reward as the score.
+        # This rewards improvement and prevents a bad final step from
+        # dragging down an earlier excellent attempt.
         if rewards:
             score = max(rewards)
         else:

@@ -15,6 +15,7 @@ class Email(BaseModel):
     true_urgency: str
     true_action_items: List[str]
     true_summary: str
+    allowed_entities: List[str] = []  # Names, IDs, dates mentioned/allowable
 
 
 EMAILS: List[Email] = [
@@ -59,6 +60,7 @@ EMAILS: List[Email] = [
             "overdue and the account faces suspension, despite a wire transfer "
             "sent on Nov 12. Requests urgent verification and suspension removal."
         ),
+        allowed_entities=["Margaret Holloway", "Acme Corp", "Invoice #INV-2024-8821", "$47,350", "November 12th", "Chase Bank", "REF: CHF-20241112-7743", "November 15th"],
     ),
 
     Email(
@@ -953,6 +955,123 @@ EMAILS: List[Email] = [
             "Head of Ecosystem at EuroTech Accelerator proposes a technology partner "
             "arrangement offering logo placement, co-branded content, and demo day "
             "speaking slots in exchange for discounted/free access for 180 portfolio startups."
+        ),
+    ),
+
+    # ════════════════════════════════════════════════════════════
+    # COMPLIANCE (3 emails)
+    # ════════════════════════════════════════════════════════════
+
+    Email(
+        email_id="e010a",
+        sender_name="Sarah Jenkins",
+        sender_role="General Counsel",
+        sender_email="s.jenkins@bigcorp.com",
+        subject="Notice of Data Processing Amendment (DPA) Update — Urgent Compliance Review",
+        body=(
+            "Dear Compliance Team,\n\n"
+            "Pursuant to our Master Service Agreement (MSA) dated January 12th, 2023, "
+            "BigCorp is issuing an updated Data Processing Amendment (DPA) to align "
+            "with the latest EU-US Data Privacy Framework (DPF) and new UK GDPR "
+            "requirements.\n\n"
+            "You are required to review the attached 42-page DPA and provide signed "
+            "acceptance by April 30th. Failure to execute this update will result "
+            "in a breach of the Data Protection Clause (Section 14.2) of our MSA.\n\n"
+            "Specifically, please verify your sub-processor list in Annex III and "
+            "confirm that all international transfers are now governed by the 2021 "
+            "SCCs as incorporated in this new version.\n\n"
+            "This is a non-negotiable legal requirement. Please confirm receipt "
+            "immediately.\n\n"
+            "Sarah Jenkins\nGeneral Counsel, BigCorp"
+        ),
+        difficulty="hard",
+        true_category="compliance",
+        true_urgency="critical",
+        true_action_items=[
+            "Review updated Data Processing Amendment (DPA) from BigCorp",
+            "Align DPA with EU-US Data Privacy Framework and UK GDPR requirements",
+            "Verify sub-processor list in Annex III of the new DPA",
+            "Confirm international transfers use 2021 SCCs",
+            "Provide signed acceptance of DPA by April 30th",
+            "Confirm receipt of notice to Sarah Jenkins immediately",
+        ],
+        true_summary=(
+            "General Counsel at BigCorp issues a 42-page DPA update required by "
+            "April 30th for regulatory compliance (GDPR/DPF). Non-compliance "
+            "threatens a breach of contract. Requires sub-processor verification "
+            "and immediate confirmation of receipt."
+        ),
+    ),
+
+    Email(
+        email_id="e010b",
+        sender_name="Marcus Thorne",
+        sender_role="Data Protection Officer",
+        sender_email="m.thorne@healthtrust.co.uk",
+        subject="Subject Access Request (SAR) — Case #SAR-2024-9912",
+        body=(
+            "Hello,\n\n"
+            "We have received a formal Subject Access Request (SAR) from a former "
+            "employee, Jane Doe (ID: JD-9912), who exercised her rights under "
+            "Article 15 of the GDPR. As you are a data processor for our HR "
+            "management system, we require your assistance in fulfilling this "
+            "request.\n\n"
+            "Please provide a portable, machine-readable export of all personally "
+            "identifiable information (PII) related to Jane Doe stored in your "
+            "production and backup databases within 72 hours. This must include "
+            "access logs, profile metadata, and any encrypted blobs that belong "
+            "to her account.\n\n"
+            "Please upload the data to our secure SFTP vault and notify us once "
+            "it is available.\n\n"
+            "Marcus Thorne\nData Protection Officer, HealthTrust"
+        ),
+        difficulty="medium",
+        true_category="compliance",
+        true_urgency="high",
+        true_action_items=[
+            "Fulfill Subject Access Request (SAR) for Jane Doe (ID: JD-9912)",
+            "Export all PII from production and backup databases in machine-readable format",
+            "Include access logs, profile metadata, and encrypted blobs in the export",
+            "Upload data to HealthTrust secure SFTP vault within 72 hours",
+            "Notify Marcus Thorne upon completion of the data upload",
+        ],
+        true_summary=(
+            "DPO at HealthTrust requires assistance with a formal Subject Access "
+            "Request (SAR) under GDPR Article 15. Requests all PII for a former "
+            "employee within 72 hours, to be uploaded via secure SFTP."
+        ),
+    ),
+
+    Email(
+        email_id="e010c",
+        sender_name="Legal Bot",
+        sender_role="Compliance Automated System",
+        sender_email="no-reply@compliance-check.com",
+        subject="Annual Certification of Insurance (COI) — Request for Renewal",
+        body=(
+            "Dear Partner,\n\n"
+            "Our records indicate that your Certification of Insurance (COI) on file "
+            "is set to expire in 45 days. To remain in compliance with our vendor "
+            "risk management policy, please upload a renewed COI to the partner portal.\n\n"
+            "Requirements:\n"
+            "  - General Liability: $2M minimum\n"
+            "  - Cyber/Data Breach: $5M minimum\n\n"
+            "If you have any questions, please contact your account manager.\n\n"
+            "Regards,\nCompliance Automated System"
+        ),
+        difficulty="easy",
+        true_category="compliance",
+        true_urgency="low",
+        true_action_items=[
+            "Renew Certification of Insurance (COI) before expiration in 45 days",
+            "Ensure General Liability is $2M minimum and Cyber is $5M minimum",
+            "Upload renewed COI to the partner portal",
+            "Contact account manager if clarification is needed",
+        ],
+        true_summary=(
+            "Automated system requests a renewal of the Certification of Insurance (COI) "
+            "within 45 days to maintain vendor compliance. Specifies $2M General and "
+            "$5M Cyber liability minimums."
         ),
     ),
 ]

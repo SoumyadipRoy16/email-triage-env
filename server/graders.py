@@ -70,13 +70,24 @@ class ClassificationGrader:
         reward = 0.0
         parts: List[str] = []
 
+        # Step 0: Reasoning Bonus (Optional but recommended)
+        if action.reasoning and len(action.reasoning) > 10:
+            reward += 0.05
+            parts.append("✔ Analysis reasoning provided (+0.05 bonus)")
+
         # Category
         if action.category is None:
             parts.append("✗ No category provided.")
-        elif action.category == email.true_category:
+        elif str(action.category).lower() == str(email.true_category).lower():
             reward += self.CATEGORY_REWARD
             parts.append(f"✓ Category '{action.category}' correct. (+{self.CATEGORY_REWARD})")
         else:
+            # Critical Logic Penalty: Identifying Compliance as something else 
+            # or vice versa is a severe enterprise failure.
+            if email.true_category == "compliance" or action.category == "compliance":
+                reward -= 0.20
+                parts.append("✘ Regulatory Failure: Incorrect compliance classification (-0.20)")
+            
             parts.append(
                 f"✗ Category '{action.category}' incorrect. "
                 f"Expected: '{email.true_category}'. (+0.00)"
@@ -130,6 +141,11 @@ class ExtractionGrader:
         parts: List[str] = []
         predicted   = action.action_items or []
         ground_truth = email.true_action_items
+
+        # Bonus for Reasoning Trace
+        if action.reasoning and len(action.reasoning) > 15:
+            reward += 0.05
+            parts.append("✔ Step-by-step reasoning trace provided (+0.05 bonus)")
 
         if not predicted:
             parts.append("✗ No action_items provided.")
@@ -192,12 +208,14 @@ class ReplyGrader:
     Total: 0.0 – 1.0 (fully reproducible for identical inputs)
     """
 
-    # ── Weight constants ──────────────────────────────────────────────────────
-    W_GREETING    = 0.08
-    W_CLOSING     = 0.08
+    # ── WEIGHTS ─────────────────────────────────────────────────────────────
+    # Normalise weights to sum to 1.0 (Total: 0.0 – 1.0)
+    W_GREETING    = 0.05
+    W_CLOSING     = 0.05
     W_COVERAGE    = 0.40
-    W_STRUCTURE   = 0.20
-    W_TONE        = 0.24
+    W_TONE        = 0.15
+    W_READABILITY = 0.15
+    W_POLITENESS  = 0.20
 
     # ── Lexical signal lists ──────────────────────────────────────────────────
     GREETINGS = [
@@ -209,11 +227,10 @@ class ReplyGrader:
         "yours faithfully", "yours sincerely", "thank you", "thanks",
         "warm regards", "respectfully",
     ]
-    PROFESSIONAL_SIGNALS = [
-        "please", "kindly", "appreciate", "understand", "apologi",
-        "assure", "ensure", "confirm", "happy to", "glad to",
-        "would be", "we will", "i will", "follow up", "look forward",
-        "do not hesitate", "feel free", "let me know",
+    # Professionalism: Politeness is a separate metric now
+    POLITE_SIGNALS = [
+        "please", "kindly", "could you", "would you mind", "i appreciate", 
+        "thank you for", "many thanks", "your patience", "apologies for",
     ]
     UNPROFESSIONAL_SIGNALS = [
         "lol", "omg", "wtf", "nope", "yep", "gonna", "wanna",
@@ -230,52 +247,106 @@ class ReplyGrader:
 
         rl = reply.lower()
 
-        # ── 1. Greeting ───────────────────────────────────────────────────────
+        # ── 1. Structural Checks (Greeting/Closing) ──────────────────────────
         has_greeting = _contains_any(rl, self.GREETINGS)
-        g_score = self.W_GREETING if has_greeting else 0.0
-        reward += g_score
-        parts.append(
-            f"{'✓' if has_greeting else '✗'} Greeting: "
-            f"{'present' if has_greeting else 'missing'}. (+{g_score:.2f})"
-        )
-
-        # ── 2. Sign-off ───────────────────────────────────────────────────────
-        # Check last 150 chars for closing
+        reward += self.W_GREETING if has_greeting else 0.0
+        
         tail = rl[-150:]
         has_closing = _contains_any(tail, self.CLOSINGS)
-        c_score = self.W_CLOSING if has_closing else 0.0
-        reward += c_score
-        parts.append(
-            f"{'✓' if has_closing else '✗'} Sign-off: "
-            f"{'present' if has_closing else 'missing'}. (+{c_score:.2f})"
-        )
+        reward += self.W_CLOSING if has_closing else 0.0
 
-        # ── 3. Point coverage ─────────────────────────────────────────────────
-        # Extract key noun phrases from email body and check if reply addresses them
+        # ── 2. Information Coverage ───────────────────────────────────────────
         coverage_score = self._coverage_score(reply, email)
         reward += self.W_COVERAGE * coverage_score
-        parts.append(
-            f"Coverage: {coverage_score:.0%} of key topics addressed. "
-            f"(+{self.W_COVERAGE * coverage_score:.3f})"
-        )
 
-        # ── 4. Structural quality ─────────────────────────────────────────────
-        struct_score = self._structure_score(reply)
-        reward += self.W_STRUCTURE * struct_score
-        parts.append(
-            f"Structure score: {struct_score:.2f}. "
-            f"(words={_word_count(reply)}, paragraphs={reply.count(chr(10))+1}). "
-            f"(+{self.W_STRUCTURE * struct_score:.3f})"
-        )
+        # ── 3. Readability Analysis (Flesch-Kincaid surrogate) ───────────────
+        read_score = self._readability_score(reply)
+        reward += self.W_READABILITY * read_score
 
-        # ── 5. Professional tone ──────────────────────────────────────────────
+        # ── 4. Politeness & Tone ──────────────────────────────────────────────
+        polite_score = self._politeness_score(rl)
+        reward += self.W_POLITENESS * polite_score
+        
         tone_score = self._tone_score(rl)
         reward += self.W_TONE * tone_score
-        parts.append(
-            f"Tone score: {tone_score:.2f}. (+{self.W_TONE * tone_score:.3f})"
-        )
+
+        # ── 5. Penalty Engines ───────────────────────────────────────────────
+        
+        # Penalise identifying a non-compliance email as compliance (False Positive)
+        # and penalise missing compliance markers (False Negative)
+        # Note: This usually happens in ClassificationGrader, but adding logic here
+        # to check for "Entity Hallucination" in the Body content.
+        
+        # Critical Hallucination Penalty: Does the reply mention names NOT in the email?
+        unseen_names = self._hallucinated_names(reply, email)
+        if unseen_names:
+            reward -= 0.25
+            parts.append(f"✘ Entity Hallucination: Mentions unknown names {', '.join(unseen_names[:2])} (-0.25)")
+
+        # Reasoning Trace: Did the agent provide reasoning? (Reward for good habits)
+        if action.reasoning and len(action.reasoning) > 15:
+            reward += 0.05
+            parts.append("✔ Step-by-step reasoning provided (+0.05 bonus)")
+
+        # Professionalism Fail: Slang or shorthand
+        if any(s in rl for s in self.UNPROFESSIONAL_SIGNALS):
+             reward -= 0.35
+             parts.append("! Critical failure: Unprofessional language detected (-0.35)")
+
+        # Result construction
+        parts.append(f"Coverage: {coverage_score:.0%}")
+        parts.append(f"Readability: {read_score:.2f}")
+        parts.append(f"Politeness/Tone: {(polite_score + tone_score)/2:.2f}")
 
         return round(min(max(reward, 0.0), 1.0), 4), "\n".join(parts)
+
+    def _readability_score(self, text: str) -> float:
+        """Surrogate for professionalism: neither too simple nor overly complex."""
+        wc = _word_count(text)
+        sc = _sentence_count(text)
+        if sc == 0: return 0.0
+        
+        avg_sent_len = wc / sc
+        # Business sweet spot for clarity: 12-25 words per sentence
+        if 12 <= avg_sent_len <= 25:
+            return 1.0
+        elif 8 <= avg_sent_len <= 35:
+            return 0.6
+        return 0.2
+
+    def _politeness_score(self, rl: str) -> float:
+        found = sum(1 for s in self.POLITE_SIGNALS if s in rl)
+        return min(found / 4, 1.0)
+
+    def _hallucinated_names(self, reply: str, email: Email) -> List[str]:
+        """Detect names or entities in reply that aren't in the source context."""
+        common = {"david", "sarah", "john", "michael", "emily", "jessica", "alice", "bob"}
+        
+        # Tokens from body and sender
+        body_tokens = _tokens(email.body)
+        sender_tokens = _tokens(email.sender_name)
+        
+        # Add explicitly allowed entities if they exist
+        allowed = set()
+        if hasattr(email, "allowed_entities") and email.allowed_entities:
+            for entity in email.allowed_entities:
+                allowed |= _tokens(entity)
+
+        present = body_tokens | sender_tokens | allowed
+        reply_tokens = _tokens(reply)
+        
+        # Find common names in reply that are NOT in the source
+        hallucinated = [n for n in (common & reply_tokens) if n not in present]
+        
+        # EXTRA: If the reply is signed as a name not in body/sender/allowed
+        # (Simple signature check: last 2-3 tokens)
+        tail = " ".join(reply.split()[-5:]).lower()
+        for name in common:
+            if name in tail and name not in present:
+                if name not in hallucinated:
+                    hallucinated.append(name)
+
+        return hallucinated
 
     def _coverage_score(self, reply: str, email: Email) -> float:
         """
@@ -341,28 +412,24 @@ class ReplyGrader:
     def _tone_score(self, reply_lower: str) -> float:
         """
         Score professional tone using lexical signals:
-          + professional signals present
-          - unprofessional signals present
+          - Penalise unprofessional signals
         """
-        score = 0.0
-        signals_found = sum(
-            1 for s in self.PROFESSIONAL_SIGNALS
-            if s in reply_lower
-        )
-        # Up to 0.8 from professional signals (cap at 6)
-        score += min(signals_found / 6, 1.0) * 0.80
-
-        # Deduct for unprofessional language
+        score = 1.0  # start at 1.0; tone is about lack of unprofessionalism here
         unprofessional = sum(
             1 for s in self.UNPROFESSIONAL_SIGNALS
             if s in reply_lower
         )
-        score -= unprofessional * 0.20
+        score -= unprofessional * 0.25
 
-        # Bonus: uses sender's name (personalisation)
-        score += 0.20
-
-        return min(max(score, 0.0), 1.0)
+        # Also check for professional signals
+        signals_found = sum(
+            1 for s in self.POLITE_SIGNALS
+            if s in reply_lower
+        )
+        # Having some politeness is good; 2+ signals = full credit for this axis
+        polite_part = min(signals_found / 2, 1.0)
+        
+        return min(max(score * 0.7 + polite_part * 0.3, 0.0), 1.0)
 
 
 # ── Grader Factory ────────────────────────────────────────────────────────────

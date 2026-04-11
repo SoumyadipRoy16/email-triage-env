@@ -20,19 +20,19 @@ from server.main import app
 class TestCorpus:
 
     def test_corpus_size(self):
-        assert len(EMAILS) == 24, f"Expected 24 emails, got {len(EMAILS)}"
+        assert len(EMAILS) == 27, f"Expected 27 emails, got {len(EMAILS)}"
 
     def test_all_categories_present(self):
         expected = {
             "billing", "technical_support", "sales_inquiry", "hr_policy",
-            "legal", "general_inquiry", "complaint", "partnership"
+            "legal", "compliance", "general_inquiry", "complaint", "partnership"
         }
         actual = {e.true_category for e in EMAILS}
         assert actual == expected, f"Missing categories: {expected - actual}"
 
     def test_three_per_category(self):
         for cat in ["billing", "technical_support", "sales_inquiry", "hr_policy",
-                    "legal", "general_inquiry", "complaint", "partnership"]:
+                    "legal", "compliance", "general_inquiry", "complaint", "partnership"]:
             emails = get_emails_by_category(cat)
             assert len(emails) == 3, f"Expected 3 emails for category '{cat}', got {len(emails)}"
 

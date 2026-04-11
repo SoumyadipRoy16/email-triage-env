@@ -38,21 +38,19 @@ pinned: false
 
 ## 🌍 Environment Description & Motivation
 
-### What is this environment?
+**Email Triage OpenEnv** is a high-fidelity simulation environment for AI agents to master the lifecycle of business communication. Agents must perform deep lexical analysis, regulatory classification, and professional response synthesis across a diverse corpus of complex enterprise scenarios.
 
-**Email Triage OpenEnv** places an AI agent in the role of a business email handler. The agent is presented with realistic synthetic business emails and must process them correctly — classifying urgency, extracting action items, and drafting professional replies — across three tasks of increasing difficulty.
-
-The environment includes a corpus of **8 hand-crafted emails** spanning the most common real-world business email categories: billing disputes, production incidents, legal notices, HR policy queries, enterprise sales leads, partnership proposals, formal complaints, and general inquiries. Each email carries verified ground-truth labels for all three tasks.
+The environment features an expanded corpus of **27+ hand-crafted emails**, including a specialized **Compliance & Legal** category (GDPR, Data Privacy, DPA) and highly nuanced business disputes. Each scenario is backed by multi-layered ground truth for deterministic and semantic evaluation.
 
 ### Why email triage?
 
-Email triage is one of the highest-value real-world NLP tasks for enterprises. A few reasons it makes an ideal RL environment:
+Email triage remains a critical frontier for Enterprise AI. This environment is designed for "Deep Quality" validation:
 
-- **Universal and grounded** — every knowledge worker processes email; there is no need for domain-specific context to understand the task
-- **Naturally multi-task** — the same email requires different skills depending on the job: routing, summarisation, or response generation
-- **Rich partial-progress signal** — unlike binary pass/fail tasks, email triage has multiple independent dimensions (category, urgency, action items, reply quality), each providing independent reward signal that an agent can learn from incrementally
-- **Iterative refinement is natural** — humans re-read and redraft emails; the multi-step structure of the extraction and reply tasks reflects this directly
-- **LLM-as-judge is principled** — professional email quality is subjective but structured; an LLM judge scoring tone, completeness, and professionalism captures exactly the criteria a human manager would apply
+- **Enterprise-Grade Rigor** — Logic extends beyond simple keyword matching to include readability surrogates, politeness axis scoring, and hallucination detection.
+- **Regulatory Complexity** — Includes scenarios for GDPR "Right to be Forgotten" and Data Processing Agreement (DPA) negotiations.
+- **Hallucination Penalization** — The environment actively detects and penalizes "hallucinated entities" (names or facts invented by the agent not present in the source context).
+- **Multi-Step Remediation** — Extraction and Reply tasks provide iterative feedback, allowing agents to demonstrate "reasoning-through-revision" capabilities.
+- **Deterministic Evaluation** — While the tasks are complex, the grading is 100% deterministic and reproducible, ensuring stable benchmarking for RL and LLM optimization.
 
 ### Design philosophy
 
@@ -308,7 +306,7 @@ reward    = raw_score / 100.0
 
 ## 📊 Baseline Scores
 
-Baseline scores from running `inference.py` with `claude-sonnet-4-20250514` at `temperature=0.2`, seeds 42/43/44.
+Baseline scores from running `inference.py` with `meta-llama/Llama-3.1-8B-Instruct:cerebras` at `temperature=0.2`, seeds 42/43/44.
 
 ### Per-task summary
 

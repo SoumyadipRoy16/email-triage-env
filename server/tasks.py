@@ -64,57 +64,57 @@ def task_type_for_id(task_id: str) -> TaskType:
 
 def classify_instructions(sender: str, subject: str) -> str:
     return (
-        f"You have received an email from {sender} with the subject: '{subject}'.\n\n"
-        "YOUR TASK — CLASSIFY THE EMAIL:\n"
-        "  1. Predict the CATEGORY from one of:\n"
+        f"Incoming Message: '{subject}' from {sender}.\n\n"
+        "OBJECTIVE — MULTI-DIMENSIONAL CLASSIFICATION:\n"
+        "  1. CATEGORY: Map to the most specific business unit:\n"
         "     billing | technical_support | sales_inquiry | hr_policy |\n"
-        "     legal | general_inquiry | complaint | partnership\n\n"
-        "  2. Predict the URGENCY LEVEL from one of:\n"
-        "     critical | high | medium | low\n\n"
-        "RESPOND with a JSON action containing exactly:\n"
+        "     legal | compliance | general_inquiry | complaint | partnership\n\n"
+        "  2. URGENCY: Assess priority (critical | high | medium | low).\n\n"
+        "CONSTRAINTS:\n"
+        "  • 'compliance' is for regulatory/GDPR/data-privacy requests.\n"
+        "  • 'legal' is for contracts, litigation, and formal disputes.\n\n"
+        "RESPONSE FORMAT:\n"
         '  { "category": "<value>", "urgency": "<value>" }\n\n'
-        "SCORING: +0.5 for correct category, +0.5 for correct urgency.\n"
-        "Partial credit is awarded — get one right for 0.5."
+        "SCORING RIGOR: Full credit requires precision on both axes (0.5 pts each)."
     )
 
 
 def extract_instructions(sender: str, subject: str, step: int, feedback: str) -> str:
     base = (
-        f"You have received an email from {sender} with the subject: '{subject}'.\n\n"
-        "YOUR TASK — EXTRACT ACTION ITEMS AND SUMMARIZE:\n"
-        "  1. List every discrete ACTION ITEM the recipient must act on.\n"
-        "     Be specific — each item should be a single, clear task.\n"
-        "  2. Write a concise SUMMARY (2–4 sentences) capturing the core request.\n\n"
-        "RESPOND with a JSON action containing:\n"
-        '  { "action_items": ["item 1", "item 2", ...], "summary": "..." }\n\n'
-        "SCORING: Based on precision + recall of action items vs. ground truth.\n"
-        "  Precision = fraction of your items that are correct.\n"
-        "  Recall    = fraction of ground-truth items you captured.\n"
-        "  Final reward = 0.4 × precision + 0.4 × recall + 0.2 × summary quality."
+        f"Message Analysis Request: Subject '{subject}' via {sender}.\n\n"
+        "OBJECTIVE — ACTIONABLE INTELLIGENCE EXTRACTION:\n"
+        "  1. DISCRETE ACTION ITEMS: Identify atomic, non-redundant tasks.\n"
+        "     Avoid vague descriptions; use imperative verbs (e.g., 'Update internal log').\n"
+        "  2. EXECUTIVE SUMMARY: A rigorous 2–4 sentence synthesis.\n\n"
+        "EVALUATION CRITERIA (Enterprise Grade):\n"
+        "  • RECALL (40%): Did you miss any hidden requests or deadlines?\n"
+        "  • PRECISION (40%): Are your items actually requests, or just summary facts?\n"
+        "  • COHERENCE (20%): Is the summary logically sound and professional?\n\n"
+        "RESPONSE FORMAT:\n"
+        '  { "action_items": ["item 1", "item 2", ...], "summary": "..." }'
     )
     if step > 1 and feedback:
-        base += f"\n\nFEEDBACK FROM PREVIOUS ATTEMPT:\n{feedback}\nUse this to improve your answer."
+        base += f"\n\nCRITICAL FEEDBACK FOR REMEDIATION (Step {step}/2):\n{feedback}\nFailure to address feedback will result in score decay."
     return base
 
 
 def reply_instructions(sender: str, subject: str, step: int, feedback: str) -> str:
     base = (
-        f"You have received an email from {sender} with the subject: '{subject}'.\n\n"
-        "YOUR TASK — DRAFT A PROFESSIONAL REPLY:\n"
-        "  Write a complete, professional email reply that:\n"
-        "  • Addresses EVERY point or question raised in the email\n"
-        "  • Uses an appropriate professional tone for the context\n"
-        "  • Includes a greeting, body paragraphs, and a sign-off\n"
-        "  • Is clear, concise, and actionable\n\n"
-        "RESPOND with a JSON action containing:\n"
-        '  { "reply": "Your full email reply text here..." }\n\n'
-        "SCORING by LLM judge (0.0–1.0):\n"
-        "  • Tone & appropriateness      (0–30 pts)\n"
-        "  • Completeness (addresses all points) (0–40 pts)\n"
-        "  • Professionalism & clarity   (0–30 pts)"
+        f"Drafting Directive: Formal Response to {sender} regarding '{subject}'.\n\n"
+        "OBJECTIVE — HIGH-FIDELITY PROFESSIONAL CORRESPONDENCE:\n"
+        "  Draft a response that demonstrates high emotional intelligence and business logic.\n\n"
+        "MANDATORY RUBRIC:\n"
+        "  • FULL COVERAGE (40%): Cross-reference every entity, date, and question.\n"
+        "  • READABILITY (15%): Use clear paragraph breaks and varied sentence structure.\n"
+        "  • POLITENESS (20%): Use professional hedging and appreciation signals.\n"
+        "  • TONE (15%): Strictly avoid 'lol', 'tbh', 'fyi', or colloquialisms.\n"
+        "  • STRUCTURAL INTEGRITY (10%): Formal greeting and professional sign-off.\n\n"
+        "PROHIBITED: Do NOT 'hallucinate' names (e.g., signing as 'Alice' if not in context).\n\n"
+        "RESPONSE FORMAT:\n"
+        '  { "reply": "Your full professional response here..." }'
     )
     if step > 1 and feedback:
-        base += f"\n\nFEEDBACK FROM PREVIOUS ATTEMPT:\n{feedback}\nRevise your reply accordingly."
+        base += f"\n\nQUALITY REMEDIATION TASK (Step {step}/3):\n{feedback}\nAddress the identified deficiencies to restore reward potential."
     return base
 
 

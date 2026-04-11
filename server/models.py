@@ -18,6 +18,7 @@ class EmailCategory(str, Enum):
     SALES_INQUIRY     = "sales_inquiry"
     HR_POLICY         = "hr_policy"
     LEGAL             = "legal"
+    COMPLIANCE        = "compliance"
     GENERAL_INQUIRY   = "general_inquiry"
     COMPLAINT         = "complaint"
     PARTNERSHIP       = "partnership"
@@ -43,6 +44,12 @@ class EmailTriageAction(BaseModel):
     The action the agent submits for a given step.
     Fill only the fields relevant to the current task_type.
     """
+
+    # Multi-Step Reasoning (Optional)
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Optional internal reasoning or thought process before the final action.",
+    )
 
     # Task 1 – Classification
     category: Optional[EmailCategory] = Field(
